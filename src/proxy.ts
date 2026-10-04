@@ -8,7 +8,7 @@ function getSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/health"];
+const PUBLIC_PATHS = ["/login", "/prototype", "/api/auth/login", "/api/health"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
