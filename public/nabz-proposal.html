@@ -129,6 +129,7 @@
           <div class="hero-actions">
             <a class="btn" href="#decision">شروع تصمیم‌گیری</a>
             <button class="btn secondary" onclick="window.print()">چاپ / ذخیره PDF</button>
+            <a class="btn" href="/api/download-proposal" download="nabz-interactive-proposal.html" style="text-decoration:none">⬇ دانلود نسخه تعاملی HTML</a>
           </div>
         </div>
         <div class="quote">«نبض به‌جای اینکه فقط بگوید چه اتفاقی افتاده، هر روز می‌گوید برای پول بیشتر و کنترل بهتر دقیقاً چه کاری انجام بدهی.»</div>
@@ -405,7 +406,7 @@
     const checks=[...document.querySelectorAll('[data-decision]')];
     function saveDecisions(){
       const state={}; checks.forEach(c=>state[c.dataset.decision]=c.checked);
-      localStorage.setItem('nabzProposalDecisions',JSON.stringify(state)); updateDecisionUI();
+      try { localStorage.setItem('nabzProposalDecisions',JSON.stringify(state)); } catch(e) {} updateDecisionUI();
     }
     function updateDecisionUI(){
       let n=0; checks.forEach(c=>{c.closest('.decision').classList.toggle('done',c.checked);if(c.checked)n++});
@@ -414,7 +415,7 @@
       document.getElementById('decisionBar').style.width=(n/8*100)+'%';
     }
     function resetDecision(){
-      checks.forEach(c=>c.checked=false); localStorage.removeItem('nabzProposalDecisions');updateDecisionUI();
+      checks.forEach(c=>c.checked=false); try { localStorage.removeItem('nabzProposalDecisions'); } catch(e) {} updateDecisionUI();
     }
     function downloadDecision(){
       const selected=checks.filter(c=>c.checked).map(c=>'✓ '+c.closest('.decision').querySelector('b').textContent);
