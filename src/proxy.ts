@@ -4,7 +4,8 @@ import { jwtVerify } from "jose";
 const SESSION_COOKIE = "mirmalek_session";
 
 function getSecretKey() {
-  const secret = process.env.SESSION_SECRET || "mirmalek-fallback-dev-secret";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET environment variable is required");
   return new TextEncoder().encode(secret);
 }
 
