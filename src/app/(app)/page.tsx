@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { customers, products, sales } from "@/db/schema";
-import { sql, desc } from "drizzle-orm";
+import { sql, desc, eq } from "drizzle-orm";
 import { formatMoney, formatDateTime, toFaDigits } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -43,11 +43,32 @@ async function getSummary() {
     .orderBy(sql`${customers.balance} desc`)
     .limit(5);
 
-  return { productStats, debtStats, todayStats, recentSales, topDebtors };
+  // Rule-based v0: a customer is inactive only when their last recorded sale
+  // was more than 30 days ago. New customers without sales are not classified.
+  const inactiveCustomers = await db
+    .select({
+      id: customers.id,
+      name: customers.name,
+      lastPurchaseAt: sql<Date>`max(${sales.createdAt})`,
+    })
+    .from(customers)
+    .innerJoin(sales, eq(sales.customerId, customers.id))
+    .groupBy(customers.id, customers.name)
+    .having(sql`max(${sales.createdAt}) < now() - interval '30 days'`)
+    .orderBy(sql`max(${sales.createdAt}) asc`)
+    .limit(5);
+
+  return { productStats, debtStats, todayStats, recentSales, topDebtors, inactiveCustomers };
 }
 
 export default async function DashboardPage() {
-  const { productStats, debtStats, todayStats, recentSales, topDebtors } = await getSummary();
+  const { productStats, debtStats, todayStats, recentSales, topDebtors, inactiveCustomers } = await getSummary();
+  const debtFollowUps = topDebtors.slice(0, 2);
+  const debtCustomerIds = new Set(debtFollowUps.map((customer) => customer.id));
+  const returnFollowUps = inactiveCustomers
+    .filter((customer) => !debtCustomerIds.has(customer.id))
+    .slice(0, 1);
+  const actionCount = debtFollowUps.length + returnFollowUps.length;
 
   return (
     <div className="space-y-5">
@@ -103,6 +124,58 @@ export default async function DashboardPage() {
         >
           🏷️ افزودن کالا
         </Link>
+      </section>
+
+      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-100">
+        <div className="mb-3">
+          <h2 className="text-sm font-bold text-stone-800">اقدام‌های پیشنهادی نبض</h2>
+          <p className="mt-1 text-xs text-stone-500">
+            {toFaDigits(actionCount)} پیشنهاد بر اساس داده‌های واقعی ثبت‌شده، بدون پیش‌بینی ساختگی
+          </p>
+        </div>
+
+        {actionCount === 0 ? (
+          <p className="rounded-xl bg-stone-50 px-3 py-4 text-xs text-stone-500">
+            هنوز داده کافی برای پیشنهاد اقدام وجود ندارد. با ثبت مشتری و فروش شروع کنید.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {debtFollowUps.map((customer) => (
+              <Link
+                key={`debt-${customer.id}`}
+                href={`/customers/${customer.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50/50 px-3 py-3"
+              >
+                <div>
+                  <p className="text-sm font-bold text-stone-800">پیگیری دریافت از {customer.name}</p>
+                  <p className="mt-1 text-xs text-rose-700">
+                    مانده بدهی ثبت‌شده: {formatMoney(customer.balance)} تومان
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-bold text-emerald-700">مشاهده حساب ←</span>
+              </Link>
+            ))}
+            {returnFollowUps.map((customer) => (
+              <Link
+                key={`return-${customer.id}`}
+                href={`/customers/${customer.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-amber-100 bg-amber-50/50 px-3 py-3"
+              >
+                <div>
+                  <p className="text-sm font-bold text-stone-800">پیگیری خرید مجدد از {customer.name}</p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    آخرین خرید ثبت‌شده: {formatDateTime(customer.lastPurchaseAt)}
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-bold text-emerald-700">مشاهده مشتری ←</span>
+              </Link>
+            ))}
+          </div>
+        )}
+        <p className="mt-3 text-[11px] leading-5 text-stone-400">
+          بدهی‌ها صرفاً مانده حساب هستند؛ چون تاریخ سررسید ثبت نمی‌شود، نبض آن‌ها را معوق اعلام نمی‌کند.
+          معیار مشتری غیرفعال: بیش از ۳۰ روز از آخرین فروش ثبت‌شده.
+        </p>
       </section>
 
       {topDebtors.length > 0 ? (
