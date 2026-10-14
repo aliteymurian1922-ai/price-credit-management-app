@@ -5,7 +5,7 @@ import { users } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireSession, hashPassword, verifyPassword } from "@/lib/auth";
+import { requireSession, requireAdmin, hashPassword, verifyPassword } from "@/lib/auth";
 
 export type SettingsFormState = { error?: string; success?: string };
 
@@ -23,8 +23,8 @@ export async function changePasswordAction(
   if (!currentPassword || !newPassword) {
     return { error: "همه فیلدها را پر کنید" };
   }
-  if (newPassword.length < 4) {
-    return { error: "رمز عبور جدید باید حداقل ۴ کاراکتر باشد" };
+  if (newPassword.length < 10) {
+    return { error: "رمز عبور جدید باید حداقل ۱۰ کاراکتر باشد" };
   }
   if (newPassword !== confirmPassword) {
     return { error: "تکرار رمز عبور مطابقت ندارد" };
@@ -46,7 +46,7 @@ export async function createStaffUserAction(
   _prevState: SettingsFormState,
   formData: FormData
 ): Promise<SettingsFormState> {
-  await requireSession();
+  await requireAdmin();
 
   const [{ value: userCount }] = await db.select({ value: count() }).from(users);
   if (userCount >= MAX_USERS) {
@@ -60,8 +60,8 @@ export async function createStaffUserAction(
   if (!username || !fullName || !password) {
     return { error: "همه فیلدها را پر کنید" };
   }
-  if (password.length < 4) {
-    return { error: "رمز عبور باید حداقل ۴ کاراکتر باشد" };
+  if (password.length < 10) {
+    return { error: "رمز عبور باید حداقل ۱۰ کاراکتر باشد" };
   }
 
   const [existing] = await db.select().from(users).where(eq(users.username, username)).limit(1);
@@ -78,7 +78,7 @@ export async function createStaffUserAction(
 
 export async function deleteUserAction(id: number) {
   "use server";
-  const session = await requireSession();
+  const session = await requireAdmin();
   if (session.userId === id) return;
 
   const [{ value: userCount }] = await db.select({ value: count() }).from(users);
@@ -93,10 +93,10 @@ export async function resetUserPasswordAction(
   _prevState: SettingsFormState,
   formData: FormData
 ): Promise<SettingsFormState> {
-  await requireSession();
+  await requireAdmin();
   const newPassword = String(formData.get("newPassword") || "");
-  if (newPassword.length < 4) {
-    return { error: "رمز عبور باید حداقل ۴ کاراکتر باشد" };
+  if (newPassword.length < 10) {
+    return { error: "رمز عبور باید حداقل ۱۰ کاراکتر باشد" };
   }
   const newHash = await hashPassword(newPassword);
   await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, id));
