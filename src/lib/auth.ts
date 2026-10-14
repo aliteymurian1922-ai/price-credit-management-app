@@ -10,7 +10,8 @@ const SESSION_COOKIE = "mirmalek_session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 30; // ۳۰ روز
 
 function getSecretKey() {
-  const secret = process.env.SESSION_SECRET || "mirmalek-fallback-dev-secret";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET environment variable is required");
   return new TextEncoder().encode(secret);
 }
 
@@ -72,6 +73,12 @@ export async function requireSession(): Promise<SessionPayload> {
   if (!session) {
     throw new Error("UNAUTHORIZED");
   }
+  return session;
+}
+
+export async function requireAdmin(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "admin") throw new Error("FORBIDDEN");
   return session;
 }
 
