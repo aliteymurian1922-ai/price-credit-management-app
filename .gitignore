@@ -1,0 +1,16 @@
+# Dependencies and Next.js output
+/node_modules
+/.next
+/out
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# Local secrets: never commit credentials
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+*.log
